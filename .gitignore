@@ -1,1 +1,5 @@
 details.py
+/.venv
+logs.json
+test.py
+/__pycache__
