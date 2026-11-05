@@ -27,7 +27,6 @@ def send_email(to, From : str, password : str, subject : str, body : str, smtp_i
         )
 
 def add_to_json(key, value, name = FILENAME):
-    # 1. Check if the file exists and is not empty
     now = datetime.now().time().strftime("%D-%H:%M:%S")
 
     if os.path.exists(name) and os.path.getsize(name) > 0:
@@ -41,14 +40,11 @@ def add_to_json(key, value, name = FILENAME):
                 print(f"Invalid log moved to {backup_name}")
                 data = {}
     else:
-        # File doesn't exist or is empty, create a clean dictionary
         print(f"'{name}' not found. Creating a new one...")
         data = {}
 
-    # 2. Add or update your data
     data[key] = value
 
-    # 3. Save everything back to the file
     with open(name, "w") as file:
         json.dump(data, file, indent=4)
     
@@ -68,8 +64,8 @@ def normalize_price(text):
     return Decimal(cleaned)
 
 def get_amazon_price(url):
-    # Spoof a real browser session to avoid immediate blocks
     now = datetime.now().time().strftime("%D-%H:%M:%S")
+    # Browser-like headers reduce the chance of an immediate Amazon block.
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
@@ -91,26 +87,18 @@ def get_amazon_price(url):
             print("Amazon returned a bot-check page")
             add_to_json(now, "Amazon returned a bot-check page", ERRNAME)
             return None
-        # if "B0FTZ4GNRB" not in response.text:
-        #     print("Unexpected Amazon page")
-        #     add_to_json(now, "Unexpected Amazon page", ERRNAME)
-        #     return None
-
-
-        # Parse HTML text
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Amazon regularly shifts HTML classes. We check the most common tags:
+        # Amazon can change its markup, so check both standard price elements
+        # and the offscreen price fallback.
         price_whole = soup.find("span", class_="a-price-whole")
         price_fraction = soup.find("span", class_="a-price-fraction")
         
         if price_whole and price_fraction:
-            # Reconstruct the price string (e.g., "24" + "." + "99")
             price = f"{price_whole.text.strip()}{price_fraction.text.strip()}"
             price = str(normalize_price(price))
             return price
         
-        # Fallback check: hidden offscreen span sometimes holds the full string
         price_offscreen = soup.find("span", class_="a-offscreen")
         if price_offscreen:
             return str(normalize_price(price_offscreen.text.strip()))
@@ -137,9 +125,6 @@ def monitor():
             if price:
                 add_to_json(s_time_now, price)
                 print(f"Current Price: {price}")
-            # else:
-                # print("CAN'T ACCESS PRICE")
-                # add_to_json(s_time_now, "ERROR: Cannot Access Price", ERRNAME)
 
             with open(FILENAME, "r") as file:
                 curr_data = json.load(file)
